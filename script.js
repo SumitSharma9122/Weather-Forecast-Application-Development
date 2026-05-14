@@ -113,6 +113,13 @@ function handleCitySearch() {
 
     // Input is valid, hide any previous errors and fetch weather
     hideInputError();
+
+    // Check for internet connectivity before making API call
+    if (!navigator.onLine) {
+        showToast("You appear to be offline. Please check your internet connection.", "error");
+        return;
+    }
+
     fetchWeatherByCity(city);
 }
 
