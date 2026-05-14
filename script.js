@@ -4,7 +4,9 @@
 
 // ===== API Configuration =====
 // Using OpenWeatherMap free tier API
-const API_KEY = "a29ef0a3edd01e80f36e8e01a0e46252";
+// IMPORTANT: Replace this with your own API key from https://openweathermap.org/appid
+// Sign up for free -> go to API Keys tab -> generate a new key
+const API_KEY = "b03a7acbea72a21e69e8b5ab72d3a5e8";
 const BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 // ===== State Variables =====
