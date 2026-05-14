@@ -3,40 +3,73 @@
 // event handling, validation, and dynamic features.
 
 // ===== API Configuration =====
-// Using OpenWeatherMap free tier API
-// IMPORTANT: Replace this with your own API key from https://openweathermap.org/appid
-// Sign up for free -> go to API Keys tab -> generate a new key
-const API_KEY = "b03a7acbea72a21e69e8b5ab72d3a5e8";
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
+// Using Open-Meteo API (free, no API key required)
+// Geocoding API to convert city names to coordinates
+const GEO_URL = "https://geocoding-api.open-meteo.com/v1/search";
+const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
+
+// ===== WMO Weather Code to Description & Icon Mapping =====
+// Maps Open-Meteo weather codes to human-readable descriptions and icon URLs
+// Icons served from OpenWeatherMap's free CDN for visual quality
+var weatherCodeMap = {
+    0:  { description: "Clear Sky",           icon: "01d", main: "Clear" },
+    1:  { description: "Mainly Clear",        icon: "02d", main: "Clear" },
+    2:  { description: "Partly Cloudy",       icon: "03d", main: "Clouds" },
+    3:  { description: "Overcast",            icon: "04d", main: "Clouds" },
+    45: { description: "Fog",                 icon: "50d", main: "Fog" },
+    48: { description: "Depositing Rime Fog", icon: "50d", main: "Fog" },
+    51: { description: "Light Drizzle",       icon: "09d", main: "Drizzle" },
+    53: { description: "Moderate Drizzle",    icon: "09d", main: "Drizzle" },
+    55: { description: "Dense Drizzle",       icon: "09d", main: "Drizzle" },
+    56: { description: "Light Freezing Drizzle", icon: "09d", main: "Drizzle" },
+    57: { description: "Dense Freezing Drizzle",  icon: "09d", main: "Drizzle" },
+    61: { description: "Slight Rain",         icon: "10d", main: "Rain" },
+    63: { description: "Moderate Rain",       icon: "10d", main: "Rain" },
+    65: { description: "Heavy Rain",          icon: "10d", main: "Rain" },
+    66: { description: "Light Freezing Rain", icon: "13d", main: "Rain" },
+    67: { description: "Heavy Freezing Rain", icon: "13d", main: "Rain" },
+    71: { description: "Slight Snowfall",     icon: "13d", main: "Snow" },
+    73: { description: "Moderate Snowfall",   icon: "13d", main: "Snow" },
+    75: { description: "Heavy Snowfall",      icon: "13d", main: "Snow" },
+    77: { description: "Snow Grains",         icon: "13d", main: "Snow" },
+    80: { description: "Slight Rain Showers", icon: "09d", main: "Rain" },
+    81: { description: "Moderate Rain Showers", icon: "09d", main: "Rain" },
+    82: { description: "Violent Rain Showers", icon: "09d", main: "Rain" },
+    85: { description: "Slight Snow Showers", icon: "13d", main: "Snow" },
+    86: { description: "Heavy Snow Showers",  icon: "13d", main: "Snow" },
+    95: { description: "Thunderstorm",        icon: "11d", main: "Thunderstorm" },
+    96: { description: "Thunderstorm with Slight Hail", icon: "11d", main: "Thunderstorm" },
+    99: { description: "Thunderstorm with Heavy Hail",  icon: "11d", main: "Thunderstorm" }
+};
 
 // ===== State Variables =====
 // Stores current temperature in Celsius for unit toggle
-let currentTempCelsius = null;
+var currentTempCelsius = null;
 // Tracks current unit: true = Celsius, false = Fahrenheit
-let isCelsius = true;
+var isCelsius = true;
 
 // ===== DOM Element References =====
 // Caching all DOM elements used frequently to avoid repeated lookups
-const cityInput = document.getElementById("city-input");
-const searchBtn = document.getElementById("search-btn");
-const locationBtn = document.getElementById("location-btn");
-const inputError = document.getElementById("input-error");
-const recentSection = document.getElementById("recent-section");
-const recentDropdown = document.getElementById("recent-dropdown");
-const currentWeatherSection = document.getElementById("current-weather-section");
-const forecastSection = document.getElementById("forecast-section");
-const welcomeSection = document.getElementById("welcome-section");
-const loadingOverlay = document.getElementById("loading-overlay");
-const unitToggleBtn = document.getElementById("unit-toggle-btn");
-const toastContainer = document.getElementById("toast-container");
-const extremeAlertModal = document.getElementById("extreme-alert-modal");
-const extremeAlertMessage = document.getElementById("extreme-alert-message");
-const closeExtremeAlertBtn = document.getElementById("close-extreme-alert");
-const rainContainer = document.getElementById("rain-container");
-const appBody = document.getElementById("app-body");
+var cityInput = document.getElementById("city-input");
+var searchBtn = document.getElementById("search-btn");
+var locationBtn = document.getElementById("location-btn");
+var inputError = document.getElementById("input-error");
+var recentSection = document.getElementById("recent-section");
+var recentDropdown = document.getElementById("recent-dropdown");
+var currentWeatherSection = document.getElementById("current-weather-section");
+var forecastSection = document.getElementById("forecast-section");
+var welcomeSection = document.getElementById("welcome-section");
+var loadingOverlay = document.getElementById("loading-overlay");
+var unitToggleBtn = document.getElementById("unit-toggle-btn");
+var toastContainer = document.getElementById("toast-container");
+var extremeAlertModal = document.getElementById("extreme-alert-modal");
+var extremeAlertMessage = document.getElementById("extreme-alert-message");
+var closeExtremeAlertBtn = document.getElementById("close-extreme-alert");
+var rainContainer = document.getElementById("rain-container");
+var appBody = document.getElementById("app-body");
 
 // ===== Event Listeners =====
-// Setting up all event listeners when the DOM is fully loaded
+// Setting up all event listeners for user interactions
 
 // Search button click - fetch weather for entered city
 searchBtn.addEventListener("click", function () {
@@ -55,7 +88,7 @@ cityInput.addEventListener("input", function () {
     hideInputError();
 });
 
-// Escape key clears the input field
+// Escape key clears the input field for quick reset
 cityInput.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
         cityInput.value = "";
@@ -64,21 +97,21 @@ cityInput.addEventListener("keydown", function (event) {
     }
 });
 
-// Use Current Location button - fetch weather using geolocation
+// Use Current Location button - fetch weather using browser geolocation
 locationBtn.addEventListener("click", function () {
     getCurrentLocationWeather();
 });
 
-// Recently searched dropdown - clicking a city fetches its weather
+// Recently searched dropdown - selecting a city fetches its weather
 recentDropdown.addEventListener("change", function () {
-    let selectedCity = recentDropdown.value;
+    var selectedCity = recentDropdown.value;
     if (selectedCity) {
         cityInput.value = selectedCity;
         fetchWeatherByCity(selectedCity);
     }
 });
 
-// Temperature unit toggle button
+// Temperature unit toggle button (°C / °F)
 unitToggleBtn.addEventListener("click", function () {
     toggleTemperatureUnit();
 });
@@ -96,9 +129,9 @@ renderRecentSearches();
 // =========================================================================
 
 // ===== Handle City Search =====
-// Validates input and triggers weather fetch for the entered city name
+// Validates the user input and triggers weather data fetch
 function handleCitySearch() {
-    let city = cityInput.value.trim();
+    var city = cityInput.value.trim();
 
     // Validate: check if input is empty
     if (city === "") {
@@ -107,13 +140,13 @@ function handleCitySearch() {
     }
 
     // Validate: check if input contains only valid characters (letters, spaces, hyphens)
-    let cityPattern = /^[a-zA-Z\s\-,.]+$/;
+    var cityPattern = /^[a-zA-Z\s\-,.]+$/;
     if (!cityPattern.test(city)) {
         showInputError("Invalid city name. Use only letters, spaces, or hyphens.");
         return;
     }
 
-    // Input is valid, hide any previous errors and fetch weather
+    // Input is valid, hide any previous errors
     hideInputError();
 
     // Check for internet connectivity before making API call
@@ -126,72 +159,111 @@ function handleCitySearch() {
 }
 
 // ===== Fetch Weather by City Name =====
-// Calls OpenWeatherMap API with the city name for current weather and forecast
+// First geocodes the city name to coordinates, then fetches weather data
 function fetchWeatherByCity(city) {
     showLoading();
 
-    // Build API URLs for current weather and 5-day forecast
-    let currentURL = BASE_URL + "/weather?q=" + encodeURIComponent(city) + "&appid=" + API_KEY + "&units=metric";
-    let forecastURL = BASE_URL + "/forecast?q=" + encodeURIComponent(city) + "&appid=" + API_KEY + "&units=metric";
+    // Step 1: Geocode city name to get latitude, longitude, and official city name
+    var geoURL = GEO_URL + "?name=" + encodeURIComponent(city) + "&count=1&language=en&format=json";
 
-    // Fetch both current weather and forecast data in parallel
-    Promise.all([
-        fetch(currentURL),
-        fetch(forecastURL)
-    ])
-        .then(function (responses) {
-            // Check if the current weather response is OK
-            if (!responses[0].ok) {
-                if (responses[0].status === 404) {
-                    throw new Error("City not found. Please check the spelling and try again.");
-                } else if (responses[0].status === 401) {
-                    throw new Error("API key is invalid. Please check your API configuration.");
-                } else {
-                    throw new Error("Failed to fetch weather data. Server returned status: " + responses[0].status);
-                }
+    fetch(geoURL)
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error("Failed to search for city. Please try again later.");
             }
-            // Parse both responses as JSON
-            return Promise.all([responses[0].json(), responses[1].json()]);
+            return response.json();
         })
-        .then(function (data) {
-            let currentData = data[0];
-            let forecastData = data[1];
+        .then(function (geoData) {
+            // Check if any results were found
+            if (!geoData.results || geoData.results.length === 0) {
+                throw new Error("City not found. Please check the spelling and try again.");
+            }
 
-            // Display weather information on the UI
-            displayCurrentWeather(currentData);
-            displayForecast(forecastData);
+            var location = geoData.results[0];
+            var lat = location.latitude;
+            var lon = location.longitude;
+            var cityName = location.name;
+            var country = location.country || "";
 
-            // Add city to recently searched list
-            addToRecentSearches(currentData.name);
+            // Step 2: Fetch weather data using coordinates
+            return fetchWeatherData(lat, lon, cityName, country);
+        })
+        .catch(function (error) {
+            hideLoading();
+            showToast(error.message, "error");
+        });
+}
 
-            // Check if weather is rainy and toggle rain effect
-            handleRainyBackground(currentData.weather[0].main);
+// ===== Fetch Weather Data from Open-Meteo =====
+// Gets current weather and 7-day forecast using lat/lon coordinates
+function fetchWeatherData(lat, lon, cityName, country) {
+    // Build the Open-Meteo API URL with all required parameters
+    var weatherURL = WEATHER_URL +
+        "?latitude=" + lat +
+        "&longitude=" + lon +
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,relative_humidity_2m_mean" +
+        "&timezone=auto" +
+        "&forecast_days=6";
 
-            // Check for extreme temperature (above 40 degrees Celsius)
-            checkExtremeTemperature(currentData.main.temp);
+    return fetch(weatherURL)
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error("Failed to fetch weather data. Please try again.");
+            }
+            return response.json();
+        })
+        .then(function (weatherData) {
+            // Display current weather on the UI
+            displayCurrentWeather(weatherData, cityName, country);
+
+            // Display 5-day forecast (skip today, show next 5 days)
+            displayForecast(weatherData);
+
+            // Add city to recently searched list in localStorage
+            addToRecentSearches(cityName);
+
+            // Check weather condition for rain effect
+            var currentCode = weatherData.current.weather_code;
+            var weatherInfo = getWeatherInfo(currentCode);
+            handleRainyBackground(weatherInfo.main);
+
+            // Check for extreme temperature (above 40°C)
+            checkExtremeTemperature(weatherData.current.temperature_2m);
 
             hideLoading();
         })
         .catch(function (error) {
             hideLoading();
-            // Display error using custom toast notification (no alert())
             showToast(error.message, "error");
         });
 }
 
 // ===== Fetch Weather by Coordinates (Geolocation) =====
-// Called when user clicks "Use Current Location" button
+// Called when the user clicks "Use Current Location" button
 function fetchWeatherByCoords(lat, lon) {
     showLoading();
 
-    // Build API URLs using latitude and longitude
-    let currentURL = BASE_URL + "/weather?lat=" + lat + "&lon=" + lon + "&appid=" + API_KEY + "&units=metric";
-    let forecastURL = BASE_URL + "/forecast?lat=" + lat + "&lon=" + lon + "&appid=" + API_KEY + "&units=metric";
+    // First, reverse geocode to get city name from coordinates
+    var reverseGeoURL = GEO_URL + "?name=city&count=1&language=en&format=json";
 
-    // Fetch both endpoints in parallel
+    // Use a simple approach: fetch weather directly and use coordinates as identifier
+    // Then use Open-Meteo's geocoding to find the nearest city
+    var weatherURL = WEATHER_URL +
+        "?latitude=" + lat +
+        "&longitude=" + lon +
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,relative_humidity_2m_mean" +
+        "&timezone=auto" +
+        "&forecast_days=6";
+
+    // Use Nominatim for reverse geocoding (free, no key needed)
+    var nominatimURL = "https://nominatim.openstreetmap.org/reverse?lat=" + lat + "&lon=" + lon + "&format=json";
+
+    // Fetch weather and city name in parallel
     Promise.all([
-        fetch(currentURL),
-        fetch(forecastURL)
+        fetch(weatherURL),
+        fetch(nominatimURL)
     ])
         .then(function (responses) {
             if (!responses[0].ok) {
@@ -199,18 +271,34 @@ function fetchWeatherByCoords(lat, lon) {
             }
             return Promise.all([responses[0].json(), responses[1].json()]);
         })
-        .then(function (data) {
-            let currentData = data[0];
-            let forecastData = data[1];
+        .then(function (results) {
+            var weatherData = results[0];
+            var locationData = results[1];
 
-            displayCurrentWeather(currentData);
-            displayForecast(forecastData);
-            addToRecentSearches(currentData.name);
-            handleRainyBackground(currentData.weather[0].main);
-            checkExtremeTemperature(currentData.main.temp);
+            // Extract city name from reverse geocoding result
+            var cityName = "Your Location";
+            var country = "";
+            if (locationData && locationData.address) {
+                cityName = locationData.address.city ||
+                    locationData.address.town ||
+                    locationData.address.village ||
+                    locationData.address.state ||
+                    "Your Location";
+                country = locationData.address.country || "";
+            }
+
+            // Display weather data
+            displayCurrentWeather(weatherData, cityName, country);
+            displayForecast(weatherData);
+            addToRecentSearches(cityName);
+
+            var currentCode = weatherData.current.weather_code;
+            var weatherInfo = getWeatherInfo(currentCode);
+            handleRainyBackground(weatherInfo.main);
+            checkExtremeTemperature(weatherData.current.temperature_2m);
 
             // Update the input field with the detected city name
-            cityInput.value = currentData.name;
+            cityInput.value = cityName;
 
             hideLoading();
         })
@@ -234,8 +322,8 @@ function getCurrentLocationWeather() {
     navigator.geolocation.getCurrentPosition(
         // Success callback - received coordinates
         function (position) {
-            let lat = position.coords.latitude;
-            let lon = position.coords.longitude;
+            var lat = position.coords.latitude;
+            var lon = position.coords.longitude;
             fetchWeatherByCoords(lat, lon);
         },
         // Error callback - user denied or error occurred
@@ -251,7 +339,7 @@ function getCurrentLocationWeather() {
                 showToast("An unknown error occurred while getting your location.", "error");
             }
         },
-        // Options for geolocation
+        // Options for geolocation request
         { timeout: 10000, enableHighAccuracy: false }
     );
 }
@@ -261,32 +349,40 @@ function getCurrentLocationWeather() {
 // =========================================================================
 
 // ===== Display Current Weather =====
-// Updates the current weather section with data from the API
-function displayCurrentWeather(data) {
+// Updates the current weather section with data from the API response
+function displayCurrentWeather(data, cityName, country) {
     // Store temperature in Celsius for unit toggle feature
-    currentTempCelsius = data.main.temp;
+    currentTempCelsius = data.current.temperature_2m;
     isCelsius = true;
 
     // Get today's formatted date
-    let today = new Date();
-    let dateString = today.getFullYear() + "-" +
+    var today = new Date();
+    var dateString = today.getFullYear() + "-" +
         String(today.getMonth() + 1).padStart(2, "0") + "-" +
         String(today.getDate()).padStart(2, "0");
 
-    // Update DOM elements with weather data
-    document.getElementById("city-name").textContent = data.name + " (" + dateString + ")";
-    document.getElementById("weather-date").textContent = getFullDateString(today);
-    document.getElementById("current-temp").textContent = data.main.temp.toFixed(1) + "°C";
-    document.getElementById("current-wind").textContent = data.wind.speed.toFixed(2) + " M/S";
-    document.getElementById("current-humidity").textContent = data.main.humidity + "%";
-    document.getElementById("current-feels-like").textContent = data.main.feels_like.toFixed(1) + "°C";
-    document.getElementById("weather-condition").textContent = data.weather[0].description;
+    // Get weather description and icon from the weather code
+    var weatherInfo = getWeatherInfo(data.current.weather_code);
+    var iconURL = "https://openweathermap.org/img/wn/" + weatherInfo.icon + "@2x.png";
 
-    // Set weather icon from OpenWeatherMap
-    let iconCode = data.weather[0].icon;
-    let iconURL = "https://openweathermap.org/img/wn/" + iconCode + "@2x.png";
+    // Build display name with country if available
+    var displayName = cityName;
+    if (country) {
+        displayName = cityName + ", " + country;
+    }
+
+    // Update DOM elements with weather data
+    document.getElementById("city-name").textContent = displayName + " (" + dateString + ")";
+    document.getElementById("weather-date").textContent = getFullDateString(today);
+    document.getElementById("current-temp").textContent = data.current.temperature_2m.toFixed(1) + "°C";
+    document.getElementById("current-wind").textContent = (data.current.wind_speed_10m / 3.6).toFixed(2) + " M/S";
+    document.getElementById("current-humidity").textContent = data.current.relative_humidity_2m + "%";
+    document.getElementById("current-feels-like").textContent = data.current.apparent_temperature.toFixed(1) + "°C";
+    document.getElementById("weather-condition").textContent = weatherInfo.description;
+
+    // Set weather icon
     document.getElementById("weather-icon").src = iconURL;
-    document.getElementById("weather-icon").alt = data.weather[0].description;
+    document.getElementById("weather-icon").alt = weatherInfo.description;
 
     // Show current weather section and hide the welcome message
     currentWeatherSection.classList.remove("hidden");
@@ -294,20 +390,26 @@ function displayCurrentWeather(data) {
 }
 
 // ===== Display 5-Day Forecast =====
-// Parses the forecast API response and creates forecast cards
+// Parses the daily forecast data and creates forecast cards
 function displayForecast(data) {
-    let forecastCards = document.getElementById("forecast-cards");
+    var forecastCards = document.getElementById("forecast-cards");
     // Clear any existing forecast cards
     forecastCards.innerHTML = "";
 
-    // OpenWeatherMap returns 3-hour interval data for 5 days (40 entries)
-    // We pick one entry per day (at around 12:00 noon) for the 5-day view
-    let dailyForecasts = getDailyForecasts(data.list);
+    // Open-Meteo daily data starts from today - skip index 0 (today) and show next 5 days
+    var daily = data.daily;
+    var startIndex = 1; // skip today since we show it as current weather
+    var endIndex = Math.min(daily.time.length, 6); // up to 5 days
 
-    // Create a card for each day's forecast
-    for (let i = 0; i < dailyForecasts.length; i++) {
-        let day = dailyForecasts[i];
-        let card = createForecastCard(day);
+    for (var i = startIndex; i < endIndex; i++) {
+        var card = createForecastCard(
+            daily.time[i],
+            daily.weather_code[i],
+            daily.temperature_2m_max[i],
+            daily.temperature_2m_min[i],
+            daily.wind_speed_10m_max[i],
+            daily.relative_humidity_2m_mean ? daily.relative_humidity_2m_mean[i] : null
+        );
         forecastCards.appendChild(card);
     }
 
@@ -315,58 +417,46 @@ function displayForecast(data) {
     forecastSection.classList.remove("hidden");
 }
 
-// ===== Extract One Forecast Entry Per Day =====
-// Filters the 3-hourly forecast list to get one per day (preferring 12:00)
-function getDailyForecasts(list) {
-    let dailyMap = {};
-    let today = new Date().toISOString().split("T")[0]; // today's date string
-
-    for (let i = 0; i < list.length; i++) {
-        let item = list[i];
-        let dateStr = item.dt_txt.split(" ")[0]; // extract YYYY-MM-DD
-        let timeStr = item.dt_txt.split(" ")[1]; // extract HH:MM:SS
-
-        // Skip today's date since we already show current weather
-        if (dateStr === today) continue;
-
-        // If this date hasn't been added yet, or this is the noon entry, prefer it
-        if (!dailyMap[dateStr] || timeStr === "12:00:00") {
-            dailyMap[dateStr] = item;
-        }
-    }
-
-    // Convert map to array and take only 5 days
-    let result = [];
-    let keys = Object.keys(dailyMap).sort();
-    for (let i = 0; i < Math.min(keys.length, 5); i++) {
-        result.push(dailyMap[keys[i]]);
-    }
-
-    return result;
-}
-
 // ===== Create a Single Forecast Card =====
 // Builds and returns a DOM element for one forecast day
-function createForecastCard(dayData) {
-    let card = document.createElement("div");
+function createForecastCard(dateStr, weatherCode, tempMax, tempMin, windMax, humidity) {
+    var card = document.createElement("div");
     card.className = "forecast-card";
 
-    // Extract date from the forecast entry
-    let dateStr = dayData.dt_txt.split(" ")[0];
+    // Get weather info from the code
+    var weatherInfo = getWeatherInfo(weatherCode);
+    var iconURL = "https://openweathermap.org/img/wn/" + weatherInfo.icon + "@2x.png";
 
-    // Weather icon URL
-    let iconCode = dayData.weather[0].icon;
-    let iconURL = "https://openweathermap.org/img/wn/" + iconCode + "@2x.png";
+    // Calculate average temperature from min and max
+    var avgTemp = ((tempMax + tempMin) / 2).toFixed(1);
+
+    // Convert wind from km/h to m/s for consistency
+    var windMS = (windMax / 3.6).toFixed(2);
 
     // Build the card HTML content with icons for temp, wind, humidity
+    var humidityHTML = "";
+    if (humidity !== null && humidity !== undefined) {
+        humidityHTML = '<div class="forecast-detail"><span>💧</span> Humidity: ' + Math.round(humidity) + '%</div>';
+    }
+
     card.innerHTML =
         '<div class="forecast-date">(' + dateStr + ')</div>' +
-        '<img src="' + iconURL + '" alt="' + dayData.weather[0].description + '" class="forecast-icon">' +
-        '<div class="forecast-detail"><span>🌡️</span> Temp: ' + dayData.main.temp.toFixed(1) + '°C</div>' +
-        '<div class="forecast-detail"><span>💨</span> Wind: ' + dayData.wind.speed.toFixed(2) + ' M/S</div>' +
-        '<div class="forecast-detail"><span>💧</span> Humidity: ' + dayData.main.humidity + '%</div>';
+        '<img src="' + iconURL + '" alt="' + weatherInfo.description + '" class="forecast-icon">' +
+        '<div class="forecast-detail"><span>🌡️</span> Temp: ' + avgTemp + '°C</div>' +
+        '<div class="forecast-detail"><span>💨</span> Wind: ' + windMS + ' M/S</div>' +
+        humidityHTML;
 
     return card;
+}
+
+// ===== Get Weather Info from WMO Code =====
+// Looks up the weather code in our mapping table
+function getWeatherInfo(code) {
+    if (weatherCodeMap[code]) {
+        return weatherCodeMap[code];
+    }
+    // Default fallback for unknown codes
+    return { description: "Unknown", icon: "03d", main: "Clouds" };
 }
 
 // =========================================================================
@@ -382,11 +472,11 @@ function toggleTemperatureUnit() {
         return;
     }
 
-    let tempDisplay = document.getElementById("current-temp");
+    var tempDisplay = document.getElementById("current-temp");
 
     if (isCelsius) {
         // Convert Celsius to Fahrenheit: (C * 9/5) + 32
-        let fahrenheit = (currentTempCelsius * 9 / 5) + 32;
+        var fahrenheit = (currentTempCelsius * 9 / 5) + 32;
         tempDisplay.textContent = fahrenheit.toFixed(1) + "°F";
         isCelsius = false;
     } else {
@@ -404,10 +494,10 @@ function toggleTemperatureUnit() {
 // Stores in localStorage and updates the dropdown
 function addToRecentSearches(city) {
     // Get existing list from localStorage
-    let recentCities = getRecentSearches();
+    var recentCities = getRecentSearches();
 
     // Remove the city if it already exists (to avoid duplicates)
-    let index = recentCities.indexOf(city);
+    var index = recentCities.indexOf(city);
     if (index !== -1) {
         recentCities.splice(index, 1);
     }
@@ -429,7 +519,7 @@ function addToRecentSearches(city) {
 
 // ===== Get Recently Searched Cities from localStorage =====
 function getRecentSearches() {
-    let saved = localStorage.getItem("recentCities");
+    var saved = localStorage.getItem("recentCities");
     if (saved) {
         return JSON.parse(saved);
     }
@@ -439,7 +529,7 @@ function getRecentSearches() {
 // ===== Render the Recently Searched Dropdown =====
 // Reads from localStorage and populates the dropdown select element
 function renderRecentSearches() {
-    let recentCities = getRecentSearches();
+    var recentCities = getRecentSearches();
 
     // If no recent searches, hide the dropdown section entirely
     if (recentCities.length === 0) {
@@ -454,8 +544,8 @@ function renderRecentSearches() {
     recentDropdown.innerHTML = '<option value="" disabled selected>Select a city</option>';
 
     // Add each city as a dropdown option
-    for (let i = 0; i < recentCities.length; i++) {
-        let option = document.createElement("option");
+    for (var i = 0; i < recentCities.length; i++) {
+        var option = document.createElement("option");
         option.value = recentCities[i];
         option.textContent = recentCities[i];
         recentDropdown.appendChild(option);
@@ -470,8 +560,8 @@ function renderRecentSearches() {
 // If weather condition is rainy/drizzle/thunderstorm, activate rain animation
 function handleRainyBackground(weatherMain) {
     // Check if the weather condition indicates rain
-    let rainyConditions = ["Rain", "Drizzle", "Thunderstorm"];
-    let isRainy = rainyConditions.indexOf(weatherMain) !== -1;
+    var rainyConditions = ["Rain", "Drizzle", "Thunderstorm"];
+    var isRainy = rainyConditions.indexOf(weatherMain) !== -1;
 
     if (isRainy) {
         // Add rainy background class to body
@@ -492,16 +582,16 @@ function activateRainEffect() {
     rainContainer.innerHTML = "";
     rainContainer.classList.remove("hidden");
 
-    // Create 80 rain drops with randomized properties
-    for (let i = 0; i < 80; i++) {
-        let drop = document.createElement("div");
+    // Create 80 rain drops with randomized properties for realistic effect
+    for (var i = 0; i < 80; i++) {
+        var drop = document.createElement("div");
         drop.className = "rain-drop";
 
         // Randomize horizontal position across the screen
         drop.style.left = Math.random() * 100 + "%";
 
         // Randomize animation duration (speed) between 0.8s and 1.8s
-        let duration = 0.8 + Math.random() * 1;
+        var duration = 0.8 + Math.random() * 1;
         drop.style.animationDuration = duration + "s";
 
         // Randomize animation delay so drops don't all start at once
@@ -511,7 +601,7 @@ function activateRainEffect() {
         drop.style.opacity = 0.3 + Math.random() * 0.5;
 
         // Vary the height of rain drops for realism
-        let dropHeight = 10 + Math.random() * 15;
+        var dropHeight = 10 + Math.random() * 15;
         drop.style.height = dropHeight + "px";
 
         rainContainer.appendChild(drop);
@@ -550,11 +640,11 @@ function checkExtremeTemperature(tempCelsius) {
 // type can be: "error", "success", or "warning"
 function showToast(message, type) {
     // Create toast element
-    let toast = document.createElement("div");
+    var toast = document.createElement("div");
     toast.className = "toast toast-" + type;
 
     // Choose icon based on toast type
-    let icon = "❌";
+    var icon = "❌";
     if (type === "success") icon = "✅";
     if (type === "warning") icon = "⚠️";
 
@@ -570,8 +660,8 @@ function showToast(message, type) {
     // Append toast to the container
     toastContainer.appendChild(toast);
 
-    // Close button removes the toast
-    let closeBtn = toast.querySelector(".toast-close");
+    // Close button removes the toast when clicked
+    var closeBtn = toast.querySelector(".toast-close");
     closeBtn.addEventListener("click", function () {
         removeToast(toast);
     });
@@ -639,8 +729,8 @@ function hideLoading() {
 // ===== Get Full Date String =====
 // Formats a date object into a readable string like "Wednesday, April 23, 2024"
 function getFullDateString(date) {
-    let days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    let months = [
+    var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var months = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     ];

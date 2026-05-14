@@ -39,7 +39,9 @@ A weather forecast application built from scratch using **HTML**, **Tailwind CSS
 | Tailwind CSS (CDN) | Utility-first responsive styling |
 | Vanilla CSS | Custom animations, glassmorphism, rain effect |
 | JavaScript (ES5/ES6) | API calls, DOM manipulation, event handling |
-| OpenWeatherMap API | Weather data provider (free tier) |
+| Open-Meteo API | Weather data provider (free, no API key) |
+| OpenWeatherMap Icons | Weather condition icons via CDN |
+| Nominatim API | Reverse geocoding for geolocation |
 | localStorage | Persisting recently searched cities |
 
 ## Project Structure
@@ -54,17 +56,12 @@ Weather Forecast Application Development/
 
 ## Setup Instructions
 
-### 1. Get an API Key
-1. Go to [OpenWeatherMap](https://openweathermap.org/) and create a free account
-2. Navigate to your API Keys section and copy your key
-3. Open `script.js` and replace the `API_KEY` value on line 7 with your own key
-
-### 2. Run the Application
+### Run the Application
 1. Clone or download this repository
 2. Open `index.html` in any modern web browser (Chrome, Firefox, Edge, Safari)
-3. That's it — no build tools, no npm install, no server needed
+3. That's it — no build tools, no npm install, no API key needed
 
-### 3. Using the App
+### Using the App
 1. Type a city name (e.g., "London", "New York", "Mumbai") in the search box
 2. Click **Search** or press **Enter**
 3. View the current weather and 5-day forecast
@@ -74,9 +71,10 @@ Weather Forecast Application Development/
 
 ## API Endpoints Used
 
-- **Current Weather**: `GET /data/2.5/weather?q={city}&appid={key}&units=metric`
-- **5-Day Forecast**: `GET /data/2.5/forecast?q={city}&appid={key}&units=metric`
-- **By Coordinates**: Same endpoints with `lat={lat}&lon={lon}` instead of `q={city}`
+- **Geocoding**: `GET geocoding-api.open-meteo.com/v1/search?name={city}`
+- **Weather**: `GET api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=...&daily=...`
+- **Reverse Geocoding**: `GET nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}`
+- **Weather Icons**: `GET openweathermap.org/img/wn/{icon}@2x.png`
 
 ## Browser Compatibility
 
