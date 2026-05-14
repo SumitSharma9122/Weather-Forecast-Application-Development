@@ -33,8 +33,13 @@
 .forecast-card:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(56, 189, 248, 0.3);
-    transform: translateY(-4px);
+    transform: translateY(-4px) scale(1.02);
     box-shadow: 0 8px 25px rgba(56, 189, 248, 0.15);
+}
+
+/* Optimize animation performance */
+.forecast-card {
+    will-change: transform;
 }
 
 /* Date badge inside forecast card */
