@@ -556,11 +556,14 @@ function showToast(message, type) {
     if (type === "success") icon = "✅";
     if (type === "warning") icon = "⚠️";
 
-    // Build toast content with message and close button
+    // Build toast content with message, close button, and auto-dismiss progress bar
     toast.innerHTML =
         '<span>' + icon + '</span>' +
         '<span>' + message + '</span>' +
-        '<button class="toast-close">&times;</button>';
+        '<button class="toast-close">&times;</button>' +
+        '<div class="toast-progress"></div>';
+    toast.style.position = "relative";
+    toast.style.overflow = "hidden";
 
     // Append toast to the container
     toastContainer.appendChild(toast);
