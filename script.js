@@ -53,6 +53,15 @@ cityInput.addEventListener("input", function () {
     hideInputError();
 });
 
+// Escape key clears the input field
+cityInput.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+        cityInput.value = "";
+        hideInputError();
+        cityInput.blur();
+    }
+});
+
 // Use Current Location button - fetch weather using geolocation
 locationBtn.addEventListener("click", function () {
     getCurrentLocationWeather();
