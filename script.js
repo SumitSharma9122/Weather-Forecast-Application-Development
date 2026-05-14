@@ -261,6 +261,7 @@ function displayCurrentWeather(data) {
     document.getElementById("current-temp").textContent = data.main.temp.toFixed(1) + "°C";
     document.getElementById("current-wind").textContent = data.wind.speed.toFixed(2) + " M/S";
     document.getElementById("current-humidity").textContent = data.main.humidity + "%";
+    document.getElementById("current-feels-like").textContent = data.main.feels_like.toFixed(1) + "°C";
     document.getElementById("weather-condition").textContent = data.weather[0].description;
 
     // Set weather icon from OpenWeatherMap
