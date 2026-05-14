@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Weather Forecast Dashboard - Search current weather and 5-day forecasts by city name or use your current location">
+    <meta name="author" content="Student">
+    <title>Weather Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS file -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Tailwind custom config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-inter min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white" id="app-body">
+
+    <!-- Rain overlay container - activated dynamically when weather condition is rainy -->
+    <div id="rain-container" class="rain-container hidden"></div>
+
+    <!-- Toast notification container for displaying errors/success messages (no JS alert) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3"></div>
+
+    <!-- Extreme temperature alert modal popup (shown when temp > 40C) -->
+    <div id="extreme-alert-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-gradient-to-br from-red-900/90 to-orange-900/90 border border-red-500/30 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl animate-bounceIn">
+            <div class="text-5xl mb-4">🔥</div>
+            <h3 class="text-2xl font-bold text-red-300 mb-2">Extreme Heat Alert!</h3>
+            <p id="extreme-alert-message" class="text-orange-200 mb-6">Temperature exceeds 40°C. Stay hydrated and avoid prolonged sun exposure.</p>
+            <button id="close-extreme-alert" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
+                Got it
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+
+        <!-- Header Section -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-cyan-300 to-teal-400 bg-clip-text text-transparent mb-2 tracking-tight">
+                ⛅ Weather Dashboard
+            </h1>
+            <p class="text-slate-400 text-sm sm:text-base font-light">Search weather forecasts for any city worldwide</p>
+        </header>
+
+        <!-- Main Content Grid: sidebar + main area -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Sidebar - Search Panel -->
+            <aside class="lg:col-span-3">
+                <div class="glass-card rounded-2xl p-6 space-y-5">
+
+                    <!-- City Name Input -->
+                    <div>
+                        <label for="city-input" class="block text-sm font-semibold text-slate-300 mb-2">Enter a City Name</label>
+                        <input
+                            type="text"
+                            id="city-input"
+                            placeholder="E.g., New York, London, Tokyo"
+                            class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 text-sm"
+                        >
+                        <!-- Inline validation error message -->
+                        <p id="input-error" class="text-red-400 text-xs mt-1.5 hidden font-medium"></p>
+                    </div>
+
+                    <!-- Search Button -->
+                    <button
+                        id="search-btn"
+                        class="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-xl font-semibold text-sm transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        🔍 Search
+                    </button>
+
+                    <!-- Divider between search and geolocation -->
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 h-px bg-white/10"></div>
+                        <span class="text-slate-500 text-xs font-medium">or</span>
+                        <div class="flex-1 h-px bg-white/10"></div>
+                    </div>
+
+                    <!-- Use Current Location Button -->
+                    <button
+                        id="location-btn"
+                        class="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-400/30 rounded-xl font-semibold text-sm text-slate-300 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        📍 Use Current Location
+                    </button>
+
+                    <!-- Recently Searched Cities Dropdown (hidden when no searches yet) -->
+                    <div id="recent-section" class="hidden">
+                        <label for="recent-dropdown" class="block text-sm font-semibold text-slate-300 mb-2">Recently Searched</label>
+                        <div class="relative">
+                            <select
+                                id="recent-dropdown"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm appearance-none cursor-pointer focus:outline-none focus:border-cyan-400/50 transition-all duration-300"
+                            >
+                                <option value="" disabled selected>Select a city</option>
+                            </select>
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▾</div>
+                        </div>
+                    </div>
+
+                </div>
+            </aside>
+
+            <!-- Right Main Content Area -->
+            <main class="lg:col-span-9 space-y-6">
+
+                <!-- Current Weather Display (hidden until a search is made) -->
+                <section id="current-weather-section" class="hidden">
+                    <div class="glass-card rounded-2xl p-6 lg:p-8">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <!-- Left side: text info -->
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-1 flex-wrap">
+                                    <h2 id="city-name" class="text-2xl sm:text-3xl font-bold text-white"></h2>
+                                    <!-- Toggle between Celsius and Fahrenheit (today only) -->
+                                    <button
+                                        id="unit-toggle-btn"
+                                        class="px-3 py-1 text-xs font-bold bg-white/10 border border-white/15 rounded-lg hover:bg-white/20 transition-all duration-300"
+                                        title="Toggle temperature unit"
+                                    >
+                                        °C / °F
+                                    </button>
+                                </div>
+                                <p id="weather-date" class="text-slate-400 text-sm mb-4"></p>
+
+                                <!-- Weather details with icons -->
+                                <div class="space-y-2">
+                                    <p class="flex items-center gap-2 text-lg">
+                                        <span class="text-orange-400">🌡️</span>
+                                        <span class="text-slate-300">Temperature:</span>
+                                        <span id="current-temp" class="font-bold text-white"></span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <span class="text-blue-400">💨</span>
+                                        <span class="text-slate-300">Wind:</span>
+                                        <span id="current-wind" class="font-semibold text-white"></span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <span class="text-cyan-400">💧</span>
+                                        <span class="text-slate-300">Humidity:</span>
+                                        <span id="current-humidity" class="font-semibold text-white"></span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Right side: weather icon and condition -->
+                            <div class="text-center sm:text-right">
+                                <img id="weather-icon" src="" alt="Weather icon" class="w-24 h-24 sm:w-28 sm:h-28 mx-auto sm:mx-0 drop-shadow-lg">
+                                <p id="weather-condition" class="text-slate-300 font-medium text-sm mt-1 capitalize"></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5-Day Forecast Section (hidden until search) -->
+                <section id="forecast-section" class="hidden">
+                    <h3 class="text-lg font-bold text-cyan-300 mb-4">📅 5-Day Forecast</h3>
+                    <div id="forecast-cards" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                        <!-- Forecast cards dynamically inserted by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Welcome/Empty State (visible initially) -->
+                <section id="welcome-section" class="glass-card rounded-2xl p-12 text-center">
+                    <div class="text-6xl mb-4">🌤️</div>
+                    <h2 class="text-2xl font-bold text-slate-200 mb-2">Welcome to Weather Dashboard</h2>
+                    <p class="text-slate-400 text-sm max-w-md mx-auto">Enter a city name or use your current location to get started with weather forecasts.</p>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-10 pt-6 border-t border-white/5">
+            <p class="text-slate-500 text-xs">&copy; 2025 Weather Dashboard. Powered by OpenWeatherMap API.</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay shown during API calls -->
+    <div id="loading-overlay" class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="flex flex-col items-center gap-3">
+            <div class="w-10 h-10 border-[3px] border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-slate-300 text-sm font-medium">Fetching weather data...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript file -->
+    <script src="script.js"></script>
+</body>
+</html>
