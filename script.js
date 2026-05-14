@@ -501,6 +501,10 @@ function activateRainEffect() {
         // Randomize opacity for depth effect
         drop.style.opacity = 0.3 + Math.random() * 0.5;
 
+        // Vary the height of rain drops for realism
+        let dropHeight = 10 + Math.random() * 15;
+        drop.style.height = dropHeight + "px";
+
         rainContainer.appendChild(drop);
     }
 }
